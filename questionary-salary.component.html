@@ -1,0 +1,784 @@
+<div class="row mt-3" style="margin: 0px !important;" *ngIf="!fullScreen">
+  <div class="col-md-6" style="padding-left: 0px">
+    <button [primary]="true" kendoButton style="text-transform: none" [icon]="'plus-outline'" (click)="open()">{{ 'QUESTIONARY-SALARY.UPLOADXLSXQUESTIONNAIRES' | translate }}</button>&nbsp;&nbsp;
+    <kendo-splitbutton [look]="'flat'" [icon]="'file-excel'" [data]="rawDataDownloadOptions" (buttonClick)="onRawDataDownload()">
+      {{ 'QUESTIONARY-SALARY.RAWDATADOWNLOAD' | translate }}
+    </kendo-splitbutton>
+  </div>
+  <div class="col-md-6 text-right" style="padding: 0">
+    {{ 'QUESTIONARY-SALARY.SURVEYENDDATE' | translate }}&nbsp;
+    <span style="font-weight: 700">{{ surveyEndDate | kendoDate:'d':localeId }}</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+    {{ 'QUESTIONARY-SALARY.YEAR' | translate }}&nbsp;&nbsp;
+    <kendo-dropdownlist [data]="years"
+                        (valueChange)="onYearChange($event)"
+                        [(ngModel)]="year"
+                        style="width: 70px"></kendo-dropdownlist>&nbsp;&nbsp;
+  </div>
+</div>
+<div class="row mt-3" *ngIf="!fullScreen && filterPanelEditMode" style="background-color: #F2F2F2; cursor: pointer" (click)="onChangeFilterPanel($event, false)">
+  <div class="col-md-11" id="divFilterSelectors">
+    <kendo-multiselect [data]="payWellSectors"
+                       textField="payWellSectorName"
+                       valueField="id"
+                       (valueChange)="onPayWellSectorChange($event)"
+                       [autoClose]="false"
+                       style="width: 500px"
+                       [disabled]="companies.length == 0"
+                       [(ngModel)]="payWellSector">
+    </kendo-multiselect>&nbsp;&nbsp;
+    <kendo-multiselect [data]="questionaryStatuses"
+                       textField="nameRu"
+                       valueField="id"
+                       (valueChange)="onQuestionaryStatusChange($event)"
+                       [autoClose]="false"
+                       style="width: 500px"
+                       [disabled]="companies.length == 0"
+                       [(ngModel)]="questionaryStatus">
+    </kendo-multiselect>
+  </div>
+  <div class="col-md-1 text-right" id="divFilterButtons">
+    <button kendoButton [icon]="'reload'" (click)="onClearFilters()" [disabled]="companies.length == 0"></button>
+  </div>
+</div>
+
+<div class="row mt-3" *ngIf="!fullScreen && !filterPanelEditMode" style="background-color: #F2F2F2; cursor: pointer" (click)="onChangeFilterPanel($event, true)">
+  <div class="col-md-11" style="padding: 8px; padding-left: 16px;">
+    <span style="font-family: Arial; font-size: 12px; font-weight: 700">{{ 'QUESTIONARY-SALARY.COLUMN-SECTOR' | translate }}:</span>&nbsp;<span style="font-family: Arial; font-size: 12px; font-weight: 400; text-decoration-line: underline">{{sectorString}}</span>&nbsp;&nbsp;
+    <span style="font-family: Arial; font-size: 12px; font-weight: 700">{{ 'QUESTIONARY-SALARY.STATUS' | translate }}:</span>&nbsp;<span style="font-family: Arial; font-size: 12px; font-weight: 400; text-decoration-line: underline">{{questionaryStatusString}}</span>
+  </div>
+  <div class="col-md-1 text-right">
+    <button kendoButton [icon]="'reload'" (click)="onClearFilters()" [disabled]="companies.length == 0"></button>
+  </div>
+</div>
+
+<div class="row mt-3" style="margin: 0 !important">
+  <kendo-splitter orientation="horizontal" [ngStyle]="{'height': ((innerHeight - 937) + (fullScreen ? 828 : 720)) + 'px'}">
+    <kendo-splitter-pane size="15%" *ngIf="!fullScreen" [resizable]="false">
+    <kendo-autocomplete #txtCompanyFilter
+                        [data]="companiesFilter"
+                        [filterable]="true"
+                        valueField="companyName"
+                        [disabled]="companies.length == 0"
+                        (filterChange)="onCompanyFilterChange($event)"
+                        (valueChange)="onCompanyChange($event)"
+                        placeholder="{{ 'QUESTIONARY-SALARY.SEARCHBYCOMPANY' | translate }}"
+                        style="width: 100%">
+    </kendo-autocomplete>
+      <kendo-panelbar>
+        <kendo-panelbar-item *ngFor="let type of payWellSectors.slice(1)"
+                             title=""
+                             [expanded]="false"
+                             hidden="{{!isPayWellSectorVisible(type.id) ? 'hidden' : ''}}">
+          <ng-template kendoPanelBarItemTitle>
+            {{type.payWellSectorName + (getFilterCompanies(type.id) == 0 ? ' (пусто)' : '')}}&nbsp;&nbsp;
+            <span *ngIf="allCompaniesAreReady(type.id)" class="k-icon k-i-check-outline" style="background-color: #E4E4E4; color: #66CC99" title="Все анкеты по сектору готовы"></span>
+          </ng-template>
+          <kendo-panelbar-item *ngFor="let company of getFilterCompanies(type.id)"
+                               (click)="currentCompanyChange(company)"
+                               style="background-color: #fff"
+                               title="">
+            <ng-template kendoPanelBarItemTitle>
+              <p style="margin: 0;">
+                <span style="font-size: 14px; font-weight: 700; font-family: Arial;line-height: 2.4">{{company.companyName}}</span>
+                <br>
+                <span [ngStyle]="getStatusStyle(company.statusId)">{{getQuestionaryStatusById(company.statusId)}}</span>&nbsp;&nbsp;
+                <img *ngIf="company.hasError" src="..\..\assets\images\error_red.png" title="В анкете есть ошибки" />
+              </p>
+            </ng-template>
+          </kendo-panelbar-item>
+        </kendo-panelbar-item>
+      </kendo-panelbar>
+    </kendo-splitter-pane>
+    <kendo-splitter-pane min="40%">
+      <ng-container *ngIf="currentQuestionary">
+        <div class="row m-3" style="margin: 0px !important; margin-top: 10px !important;">
+          <div class="col-md-6">
+            <span style="font-size: 16px; font-weight: 700; font-family: Arial">{{currentCompanyName}}</span><br>
+            <span>{{currentPayWellSectorName}}</span>&nbsp;&nbsp;&nbsp;&nbsp;
+            <kendo-numerictextbox [(ngModel)]="currentQuestionary.totalEmployeesFieldValue"
+                                  [min]="1"
+                                  [max]="9999999999"
+                                  [format]="'n0'"
+                                  [autoCorrect]="true"
+                                  style="width: 150px;"
+                                  placeholder="{{ 'QUESTIONARY-SALARY.ENTERNUMBER' | translate }}"
+                                  [disabled]="currentQuestionary.statusId == QuestionaryStatusEnum.ReadyToDeliver"
+                                  (blur)="questionaryTotalEmployeesFieldValueChange($event)">
+            </kendo-numerictextbox>&nbsp;&nbsp;
+            {{ 'QUESTIONARY-SALARY.TOTALEMPLOYEES' | translate }}
+          </div>
+          <div class="col-md-6 text-right" style="padding: 0">
+            {{ 'QUESTIONARY-SALARY.STATUS' | translate }}&nbsp;&nbsp;
+            <kendo-dropdownlist (valueChange)="questionaryStatusChange($event)"
+                                [data]="questionaryStatusesWithoutAll"
+                                textField="nameRu"
+                                valueField="id"
+                                [(ngModel)]="currentQuestionary.status">
+            </kendo-dropdownlist>
+            &nbsp;&nbsp;&nbsp;&nbsp;
+            {{ 'QUESTIONARY-SALARY.RESPONSIBLE' | translate }}&nbsp;&nbsp;
+            <kendo-dropdownlist (valueChange)="questionaryResponsiblePersonChange($event)"
+                                [data]="responsibles"
+                                textField="name"
+                                valueField="id"
+                                [(ngModel)]="currentQuestionary.responsible">
+            </kendo-dropdownlist>&nbsp;&nbsp;&nbsp;&nbsp;
+            <kendo-splitbutton [look]="'flat'" [icon]="'file-excel'" [data]="excelDownloadOptions" (buttonClick)="onCurrentExcelDownload()">
+              <ng-template kendoSplitButtonItemTemplate let-dataItem>
+                <span style="width: 170px">{{ dataItem.text }}</span>
+              </ng-template>
+            </kendo-splitbutton>&nbsp;&nbsp;
+            <button kendoButton [icon]="'full-screen-exit'" (click)="onFullScreen()"></button>
+          </div>
+        </div>
+        <div class="row m-3" *ngIf="questionaryFilterPanelEditMode" style="margin: 0px !important; background-color: #F2F2F2; cursor: pointer" (click)="onChangeQuestionaryFilterPanel($event, false)">
+          <div class="col-md-12" id="divQuestionaryFilterSelectors">
+            <kendo-multiselect [data]="districts"
+                               textField="nameRu"
+                               valueField="id"
+                               (valueChange)="onDistrictChange($event)"
+                               [autoClose]="false"
+                               style="width: 320px"
+                               [(ngModel)]="district">
+            </kendo-multiselect>&nbsp;&nbsp;
+            <kendo-multiselect [data]="regions"
+                               textField="nameRu"
+                               valueField="id"
+                               (valueChange)="onRegionChange($event)"
+                               [autoClose]="false"
+                               style="width: 320px"
+                               [(ngModel)]="region">
+            </kendo-multiselect>&nbsp;&nbsp;
+            <kendo-multiselect [data]="cities"
+                               textField="nameRu"
+                               valueField="id"
+                               (valueChange)="onCityChange($event)"
+                               [autoClose]="false"
+                               style="width: 320px"
+                               [(ngModel)]="city">
+            </kendo-multiselect>&nbsp;&nbsp;
+            <input type="checkbox" id="allExceptMsk" class="k-checkbox" [(ngModel)]="allExceptMsk" (change)="allExceptMskChange($event)" />
+            <label class="k-checkbox-label" for="allExceptMsk">{{ 'QUESTIONARY-SALARY.ALLREGIONSEXCEPTMOSCOW' | translate }}</label>
+          </div>
+        </div>
+        <div class="row mt-3" *ngIf="!questionaryFilterPanelEditMode" style="margin: 4px !important; margin-left: 2px !important; background-color: #F2F2F2; cursor: pointer" (click)="onChangeQuestionaryFilterPanel($event, true)">
+          <div class="col-md-12" style="">
+            <span style="font-family: Arial; font-size: 12px; font-weight: 700">{{ 'QUESTIONARY-SALARY.COLUMN-DISTRICT' | translate }}:</span>&nbsp;<span style="font-family: Arial; font-size: 12px; font-weight: 400; text-decoration-line: underline">{{districtString}}</span>&nbsp;&nbsp;
+            <span style="font-family: Arial; font-size: 12px; font-weight: 700">{{ 'QUESTIONARY-SALARY.COLUMN-REGION' | translate }}:</span>&nbsp;<span style="font-family: Arial; font-size: 12px; font-weight: 400; text-decoration-line: underline">{{regionString}}</span>&nbsp;&nbsp;
+            <span style="font-family: Arial; font-size: 12px; font-weight: 700">{{ 'QUESTIONARY-SALARY.COLUMN-CITY' | translate }}:</span>&nbsp;<span style="font-family: Arial; font-size: 12px; font-weight: 400; text-decoration-line: underline">{{cityString}}</span>&nbsp;&nbsp;
+            <span style="font-family: Arial; font-size: 12px; font-weight: 700">{{ 'QUESTIONARY-SALARY.ALLREGIONSEXCEPTMOSCOW' | translate }}:</span>&nbsp;<span style="font-family: Arial; font-size: 12px; font-weight: 400; text-decoration-line: underline">{{ ((allExceptMsk) ? 'COMMON.YES' : 'COMMON.NO') | translate }}</span>
+          </div>
+        </div>
+
+        <div class="row m-3" style="margin: 0px !important">
+          <div class="col-md-11" style="background-color: #FFE2D5; padding: 0px" *ngIf="gridView.errors.errors.length > 0 || gridView.errors.warnings.length > 0">
+            <button kendoButton
+                    [icon]="(errorsStatusCollapsed) ? 'arrow-chevron-right' : 'arrow-chevron-down'"
+                    style="background-color: #FFE2D5"
+                    (click)="onErrorsStatusCollapsedClick()">
+            </button>
+
+            <ng-container *ngIf="!currentErrorTypeId || !showSelectedError">
+              <ng-container *ngIf="gridView.errors.errors.length > 0">
+                <img src="..\..\assets\images\error_red.png" title="В анкете есть ошибки" />&nbsp;
+                <span style="font-weight: 700">{{gridView.errors.errors.length}} ошибки</span>&nbsp;&nbsp;
+              </ng-container>
+              <ng-container *ngIf="gridView.errors.warnings.length > 0">
+                <span class="k-icon k-i-notification" [ngStyle]="{'color' : 'sandybrown'}" title="В анкете есть предупреждения"></span>&nbsp;
+                <span style="font-weight: 700">{{gridView.errors.warnings.length}} предупреждений</span>
+              </ng-container>
+            </ng-container>
+
+            <ng-container *ngIf="currentErrorTypeId && showSelectedError">
+              <span style="
+                  display: inline-block;
+                  height: 26px;
+                  width: 26px;
+                  text-align: center;
+                  vertical-align: middle;
+                  border-radius: 50%;
+                  font-weight: 700;
+                  font-size: 13px;"
+                  [ngStyle]="{'background': currentErrorType.isError ? '#FF3300' : '#FFCC00', 'color': currentErrorType.isError ? '#fff' : '#000'}">
+                {{currentErrorType.count}}
+              </span>&nbsp;
+              <div style="display: inline-block;">
+                <span style="font-weight: 700">{{currentErrorType.name}}</span>
+              </div>
+            </ng-container>
+          </div>
+          <div class="col-md-1 text-right" style="background-color: #FFE2D5; padding: 0px">
+            <button *ngIf="showSelectedError" kendoButton [icon]="'close'" style="background-color: #FFE2D5;" (click)="onHideSelectedErrorClick()"></button>
+          </div>
+        </div>
+        <div class="row m-3" style="margin: 0px !important">
+          <div class="col-md-12" style="background-color: #FFE2D5; padding: 0px" *ngIf="gridView.errors.errors.length > 0 && !errorsStatusCollapsed">
+            <div *ngIf="errorsCollapsed">
+              <ng-container *ngFor="let error of gridView.errors.errors.slice(0, 2)">
+                <span style="
+                  cursor: pointer;
+                  display: inline-block;
+                  height: 26px;
+                  width: 26px;
+                  text-align: center;
+                  vertical-align: middle;
+                  border-radius: 50%;
+                  background: #FF3300;
+                  color: #fff;
+                  font-weight: 700;
+                  font-size: 13px;"
+                  (click)="onErrorTitleClick(error)">
+                {{error.count}}</span>
+                <div style="display: inline-block;">
+                  <button kendoButton
+                          style="text-transform: none;"
+                          [ngStyle]="{'font-weight': error.id == currentErrorTypeId ? '700' : '500'}"
+                          look="flat"
+                          (click)="onErrorTitleClick(error)">
+                    {{error.name}}
+                  </button>
+                </div>
+                <br>
+              </ng-container>
+              <button *ngIf="gridView.errors.errors.length > 2"
+                      kendoButton
+                      style="text-decoration: underline; text-transform: none;"
+                      look="flat"
+                      (click)="onErrorsCollapsedClick()">
+                Ещё {{gridView.errors.errors.length - 2}} ошибки
+              </button>
+            </div>
+            <div *ngIf="!errorsCollapsed">
+              <ng-container *ngFor="let error of gridView.errors.errors">
+                <span style="
+                  cursor: pointer;
+                  display: inline-block;
+                  height: 26px;
+                  width: 26px;
+                  text-align: center;
+                  vertical-align: middle;
+                  border-radius: 50%;
+                  background: #FF3300;
+                  color: #fff;
+                  font-weight: 700;
+                  font-size: 13px;"
+                  (click)="onErrorTitleClick(error)">
+                {{error.count}}</span>
+                <div style="display: inline-block;">
+                  <button kendoButton
+                          style="text-transform: none;"
+                          [ngStyle]="{'font-weight': error.id == currentErrorTypeId ? '700' : '500'}"
+                          look="flat"
+                          (click)="onErrorTitleClick(error)">
+                    {{error.name}}
+                  </button>
+                </div>
+                <br>
+              </ng-container>
+              <button kendoButton
+                      style="text-decoration: underline; text-transform: none;"
+                      look="flat"
+                      (click)="onErrorsCollapsedClick()">
+                Свернуть
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="row m-3" style="margin: 0px !important">
+          <div class="col-md-12" style="background-color: #FFF1BB; padding: 0px" *ngIf="gridView.errors.warnings.length > 0 && !errorsStatusCollapsed">
+            <div *ngIf="warningsCollapsed">
+              <ng-container *ngFor="let warning of gridView.errors.warnings.slice(0, 2)">
+                <span style="
+                  cursor: pointer;
+                  display: inline-block;
+                  height: 26px;
+                  width: 26px;
+                  text-align: center;
+                  vertical-align: middle;
+                  border-radius: 50%;
+                  background: #FFCC00;
+                  font-weight: 700;
+                  font-size: 13px;"
+                  (click)="onErrorTitleClick(warning)">
+                {{warning.count}}</span>
+                <div style="display: inline-block;">
+                  <button kendoButton
+                          style="text-transform: none;"
+                          [ngStyle]="{'font-weight': warning.id == currentErrorTypeId ? '700' : '500'}"
+                          look="flat"
+                          (click)="onErrorTitleClick(warning)">
+                    {{warning.name}}
+                  </button>
+                </div>
+                <br>
+              </ng-container>
+              <button *ngIf="gridView.errors.warnings.length > 2"
+                      kendoButton
+                      style="text-decoration: underline; text-transform: none;"
+                      look="flat"
+                      (click)="onWarningsCollapsedClick()">
+                Ещё {{gridView.errors.warnings.length - 2}} предупреждения
+              </button>
+            </div>
+            <div *ngIf="!warningsCollapsed">
+              <ng-container *ngFor="let warning of gridView.errors.warnings">
+                <span style="
+                  cursor: pointer;
+                  display: inline-block;
+                  height: 26px;
+                  width: 26px;
+                  text-align: center;
+                  vertical-align: middle;
+                  border-radius: 50%;
+                  background: #FFCC00;
+                  font-weight: 700;
+                  font-size: 13px;"
+                  (click)="onErrorTitleClick(warning)">
+                {{warning.count}}</span>
+                <div style="display: inline-block;">
+                  <button kendoButton
+                          style="text-transform: none;"
+                          [ngStyle]="{'font-weight': warning.id == currentErrorTypeId ? '700' : '500'}"
+                          look="flat"
+                          (click)="onErrorTitleClick(warning)">
+                    {{warning.name}}
+                  </button>
+                </div>
+                <br>
+              </ng-container>
+              <button kendoButton
+                      style="text-decoration: underline; text-transform: none;"
+                      look="flat"
+                      (click)="onWarningsCollapsedClick()">
+                Свернуть
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="row m-3" style="margin: 0px !important">
+          <div class="col-md-12" style="padding: 0px">
+            <kendo-grid #grid
+                        [height]="(innerHeight - 940 - errorsHeight) + (fullScreen ? 715 : 607)"
+                        [data]="gridView"
+                        [loading]="loading"
+                        [pageSize]="state.take"
+                        [skip]="state.skip"
+                        [pageable]="true"
+                        [resizable]="true"
+                        filterable="menu"
+                        [filter]="state.filter"
+                        (scrollBottom)="scrollBottomHandler($event)"
+                        (dataStateChange)="dataStateChange($event)"
+                        (cellClick)="cellClickHandler($event)"
+                        (cellClose)="cellCloseHandler($event)"
+                        (cancel)="cancelHandler($event)"
+                        (save)="saveHandler($event)"
+                        [navigable]="true">
+              <kendo-grid-column field="rowIndex" title="№" width="100" [filterable]="false" [editable]="false" [headerStyle]="{'text-align': 'left','background-color': '#F2F2F2', 'color': '#333333', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'text-align': 'left','background-color': '#F2F2F2', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'border': '1px solid #E4E4E4'}"></kendo-grid-column>
+              <kendo-grid-column field="hfid" title="{{ 'QUESTIONARY-SALARY.COLUMN-ID' | translate }}" width="70" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <div style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.hfid}}">{{dataItem.hfid}}</div>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.Hfid, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.Hfid, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.Hfid, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.Hfid, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.Hfid, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="department" title="{{ 'QUESTIONARY-SALARY.COLUMN-DEPARTMENT' | translate }}" width="300" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <div style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.department}}">{{dataItem.department}}</div>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.Department, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.Department, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.Department, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.Department, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.Department, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="position" style="color : green" title="{{ 'QUESTIONARY-SALARY.COLUMN-POSITION' | translate }}" width="170" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <div style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.position}}">{{dataItem.position}}</div>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.Position, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.Position, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.Position, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.Position, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.Position, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="grade" title="{{ 'QUESTIONARY-SALARY.COLUMN-GRADE' | translate }}" width="100" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <div style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.grade}}">{{dataItem.grade}}</div>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.Grade, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.Grade, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.Grade, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.Grade, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.Grade, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="subordinateCount" editor="numeric" format="{0:n0}" title="{{ 'QUESTIONARY-SALARY.COLUMN-SUBORDINATECOUNT' | translate }}" width="150" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <div style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.subordinateCount | number:'1.0' | noComma}}">{{dataItem.subordinateCount | number:'1.0' | noComma}}</div>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.SubordinateCount, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.SubordinateCount, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.SubordinateCount, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.SubordinateCount, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.SubordinateCount, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="pwCStandardPositionId" title="{{ 'QUESTIONARY-SALARY.COLUMN-PWCCODE' | translate }}" width="200" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'text-align': 'right'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.pwCPositionCode}}">{{dataItem.pwCPositionCode}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.PwCStandardPositionId, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.PwCStandardPositionId, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.PwCStandardPositionId, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.PwCStandardPositionId, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.PwCStandardPositionId, ErrorTypeEnum.Warning)}}"></span>
+                  &nbsp;&nbsp;&nbsp;&nbsp;
+                  <button kendoButton [icon]="'more-horizontal'" (click)="openGridPositionsPopup(dataItem.pwCStandardPositionId, dataItem.id)"></button>
+                </ng-template>
+                <ng-template kendoGridFilterMenuTemplate let-filterService="filterService">
+                  <kendo-multiselect
+                      #pwccodeFilter
+                      style="width:360px"
+                      [data]="positionsFilterMultiSelect"
+                      [clearButton]="true"
+                      [filterable]="true"
+                      textField="pwCPositionCode"
+                      valueField="id"
+                      [valuePrimitive]="false"
+                      [autoClose]="false"
+                      [value]="positionsFilters(filter)"
+                      (valueChange)="positionsValueChange($event, filterService)"
+                      (filterChange)="positionsFilterChange($event)"
+                      >
+                  </kendo-multiselect>
+                </ng-template>
+                <ng-template kendoGridEditTemplate
+                             let-dataItem="dataItem"
+                             let-column="column"
+                             let-formGroup="formGroup">
+                  <kendo-autocomplete
+                                      [data]="gridPositionsFilter"
+                                      [filterable]="true"
+                                      valueField="pwCPositionCode"
+                                      (filterChange)="onPwcCodeFilterChange($event, false)"
+                                      (valueChange)="onPwcCodeChangeInCell($event)"
+                                      style="width: 160px;"
+                                      [formControl]="formGroup.get('pwCPositionCode')">
+                  </kendo-autocomplete>
+                  &nbsp;&nbsp;&nbsp;&nbsp;
+                  <button kendoButton [icon]="'plus'" (click)="openGridPositionsPopup(dataItem.pwCStandardPositionId, dataItem.id)"></button>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="pwCStandardPositionId" title="{{ 'QUESTIONARY-SALARY.COLUMN-PWCPOSITION' | translate }}" width="420" [filterable]="false" [editable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'background-color': '#F2F2F2', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <div style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{position(dataItem.pwCStandardPositionId)?.pwCStandardPositionName}}">{{position(dataItem.pwCStandardPositionId)?.pwCStandardPositionName}}</div>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="pwCStandardPositionId" title="{{ 'QUESTIONARY-SALARY.COLUMN-PWCLEVEL' | translate }}" width="250" [filterable]="false" [editable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'background-color': '#F2F2F2', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <div style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{position(dataItem.pwCStandardPositionId)?.payWellLevelName}}">{{position(dataItem.pwCStandardPositionId)?.payWellLevelName}}</div>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="functionalDeviation" editor="boolean" title="{{ 'QUESTIONARY-SALARY.COLUMN-FUNCTIONALDEVIATION' | translate }}" width="150" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'overflow': 'visible', 'white-space': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.functionalDeviation ? '+' : '-'}}">{{dataItem.functionalDeviation ? '+' : '-'}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.FunctionalDeviation, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.FunctionalDeviation, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.FunctionalDeviation, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.FunctionalDeviation, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.FunctionalDeviation, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="districtId" title="{{ 'QUESTIONARY-SALARY.COLUMN-DISTRICT' | translate }}" width="170" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '10px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '10px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{getDistrictNameById(dataItem.districtId)?.nameRu}}">{{getDistrictNameById(dataItem.districtId)?.nameRu}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.DistrictId, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.DistrictId, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.DistrictId, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.DistrictId, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.DistrictId, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+                <ng-template kendoGridEditTemplate
+                             let-dataItem="dataItem"
+                             let-column="column"
+                             let-formGroup="formGroup">
+                  <kendo-dropdownlist [data]="districts"
+                                      textField="nameRu"
+                                      valueField="id"
+                                      [valuePrimitive]="true"
+                                      [formControl]="formGroup.get('districtId')">
+                  </kendo-dropdownlist>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="regionId" title="{{ 'QUESTIONARY-SALARY.COLUMN-REGION' | translate }}" width="170" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '10px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '10px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{getRegionNameById(dataItem.regionId)?.nameRu}}">{{getRegionNameById(dataItem.regionId)?.nameRu}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.RegionId, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.RegionId, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.RegionId, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.RegionId, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.RegionId, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+                <ng-template kendoGridEditTemplate
+                             let-dataItem="dataItem"
+                             let-column="column"
+                             let-formGroup="formGroup">
+                  <kendo-dropdownlist [data]="regions"
+                                      textField="nameRu"
+                                      valueField="id"
+                                      [valuePrimitive]="true"
+                                      [formControl]="formGroup.get('regionId')">
+                  </kendo-dropdownlist>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="cityId" title="{{ 'QUESTIONARY-SALARY.COLUMN-CITY' | translate }}" width="170" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '10px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '10px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{getCityNameById(dataItem.cityId)?.nameRu}}">{{getCityNameById(dataItem.cityId)?.nameRu}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.CityId, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.CityId, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.CityId, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.CityId, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.CityId, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+                <ng-template kendoGridEditTemplate
+                             let-dataItem="dataItem"
+                             let-column="column"
+                             let-formGroup="formGroup">
+                  <kendo-dropdownlist [data]="cities"
+                                      textField="nameRu"
+                                      valueField="id"
+                                      [valuePrimitive]="true"
+                                      [formControl]="formGroup.get('cityId')">
+                  </kendo-dropdownlist>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="salary" editor="numeric" format="{0:n0}" title="{{ 'QUESTIONARY-SALARY.COLUMN-SALARY' | translate }}" width="120" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'overflow': 'visible', 'white-space': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <div class="whole-cell" [style.backgroundColor]="getSalaryCellColor(dataItem)">
+                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.salary | number:'1.0-2' | noComma}}">{{dataItem.salary | number:'1.0-2' | noComma}}</span>
+                    <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.Salary, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.Salary, ErrorTypeEnum.Error)}}" />
+                    <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.Salary, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.Salary, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.Salary, ErrorTypeEnum.Warning)}}"></span>
+                  </div>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="regionalAllowance" editor="numeric" format="{0:n0}" title="{{ 'QUESTIONARY-SALARY.COLUMN-REGIONALALLOWANCE' | translate }}" width="150" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'overflow': 'visible', 'white-space': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <div class="whole-cell" [style.backgroundColor]="getRegionalAllowanceCellColor(dataItem)">
+                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.regionalAllowance | number:'1.0-2' | noComma}}">{{dataItem.regionalAllowance | number:'1.0-2' | noComma}}</span>
+                    <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.RegionalAllowance, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.RegionalAllowance, ErrorTypeEnum.Error)}}" />
+                    <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.RegionalAllowance, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.RegionalAllowance, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.RegionalAllowance, ErrorTypeEnum.Warning)}}"></span>
+                  </div>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="guaranteedBonus" editor="numeric" format="{0:n0}" title="{{ 'QUESTIONARY-SALARY.COLUMN-GUARANTEEDBONUS' | translate }}" width="150" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'overflow': 'visible', 'white-space': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.guaranteedBonus | number:'1.0-2' | noComma}}">{{dataItem.guaranteedBonus | number:'1.0-2' | noComma}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.GuaranteedBonus, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.GuaranteedBonus, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.GuaranteedBonus, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.GuaranteedBonus, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.GuaranteedBonus, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="otherPayments" editor="numeric" format="{0:n0}" title="{{ 'QUESTIONARY-SALARY.COLUMN-OTHERPAYMENTS' | translate }}" width="120" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'overflow': 'visible', 'white-space': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.otherPayments | number:'1.0-2' | noComma}}">{{dataItem.otherPayments | number:'1.0-2' | noComma}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.OtherPayments, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.OtherPayments, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.OtherPayments, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.OtherPayments, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.OtherPayments, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="bonusPrivilege" editor="boolean" title="{{ 'QUESTIONARY-SALARY.COLUMN-BONUSPRIVILEGE' | translate }}" width="100" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'overflow': 'visible', 'white-space': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{(dataItem.bonusPrivilege ? 'COMMON.YES' : 'COMMON.NO') | translate}}">{{(dataItem.bonusPrivilege ? 'COMMON.YES' : 'COMMON.NO') | translate}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.BonusPrivilege, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.BonusPrivilege, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.BonusPrivilege, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.BonusPrivilege, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.BonusPrivilege, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="practicalBonus" editor="numeric" format="{0:n0}" title="{{ 'QUESTIONARY-SALARY.COLUMN-PRACTICALBONUS' | translate }}" width="130" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'overflow': 'visible', 'white-space': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.practicalBonus | number:'1.0-2' | noComma}}">{{dataItem.practicalBonus | number:'1.0-2' | noComma}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.PracticalBonus, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.PracticalBonus, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.PracticalBonus, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.PracticalBonus, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.PracticalBonus, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="targetBonus" editor="numeric" format="{0:n0}" title="{{ 'QUESTIONARY-SALARY.COLUMN-TARGETBONUS' | translate }}" width="130" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'overflow': 'visible', 'white-space': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.targetBonus | number:'1.0-2' | noComma}}">{{dataItem.targetBonus | number:'1.0-2' | noComma}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.TargetBonus, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.TargetBonus, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.TargetBonus, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.TargetBonus, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.TargetBonus, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="commissionCharge" editor="numeric" format="{0:n0}" title="{{ 'QUESTIONARY-SALARY.COLUMN-COMMISSIONCHARGE' | translate }}" width="150" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'overflow': 'visible', 'white-space': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.commissionCharge | number:'1.0-2' | noComma}}">{{dataItem.commissionCharge | number:'1.0-2' | noComma}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.CommissionCharge, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.CommissionCharge, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.CommissionCharge, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.CommissionCharge, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.CommissionCharge, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="targetCommissionCharge" editor="numeric" format="{0:n0}" title="{{ 'QUESTIONARY-SALARY.COLUMN-TARGETCOMMISSIONCHARGE' | translate }}" width="150" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'overflow': 'visible', 'white-space': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.targetCommissionCharge | number:'1.0-2' | noComma}}">{{dataItem.targetCommissionCharge | number:'1.0-2' | noComma}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.TargetCommissionCharge, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.TargetCommissionCharge, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.TargetCommissionCharge, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.TargetCommissionCharge, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.TargetCommissionCharge, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="bonusFrequencyId" title="{{ 'QUESTIONARY-SALARY.COLUMN-BONUSFREQUENCY' | translate }}" width="160" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'overflow': 'visible', 'white-space': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{bonusFrequency(dataItem.bonusFrequencyId)?.name}}">{{bonusFrequency(dataItem.bonusFrequencyId)?.name}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.BonusFrequencyId, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.BonusFrequencyId, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.BonusFrequencyId, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.BonusFrequencyId, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.BonusFrequencyId, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+                <ng-template kendoGridEditTemplate
+                             let-dataItem="dataItem"
+                             let-column="column"
+                             let-formGroup="formGroup">
+                  <kendo-dropdownlist [data]="bonusFrequencies"
+                                      textField="name"
+                                      valueField="id"
+                                      [valuePrimitive]="true"
+                                      [formControl]="formGroup.get('bonusFrequencyId')">
+                  </kendo-dropdownlist>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="employmentDate" editor="date" title="{{ 'QUESTIONARY-SALARY.COLUMN-EMPLOYMENTDATE' | translate }}" width="150" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'overflow': 'visible', 'white-space': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.employmentDate | kendoDate:'d':localeId}}">{{dataItem.employmentDate | kendoDate:'d':localeId}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.EmploymentDate, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.EmploymentDate, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.EmploymentDate, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.EmploymentDate, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.EmploymentDate, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+                <ng-template kendoGridEditTemplate
+                             let-dataItem="dataItem"
+                             let-column="column"
+                             let-formGroup="formGroup">
+                  <kendo-datepicker [max]="now"
+                                    [formControl]="formGroup.get('employmentDate')">
+                  </kendo-datepicker>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="comment" title="{{ 'QUESTIONARY-SALARY.COLUMN-COMMENT' | translate }}" width="300" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <span style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.comment}}">{{dataItem.comment}}</span>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.Comment, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.Comment, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.Comment, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.Comment, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.Comment, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <kendo-grid-column field="additionalColumnData" title="{{ 'QUESTIONARY-SALARY.COLUMN-ADDITIONALCOLUMNDATA' | translate }}" width="300" [filterable]="false" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '0px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+                <ng-template kendoGridCellTemplate let-dataItem>
+                  <div style="overflow: hidden; text-overflow: ellipsis; white-space: normal; height: 32px" title="{{dataItem.additionalColumnData}}">{{dataItem.additionalColumnData}}</div>
+                  <img *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.AdditionalColumn, ErrorTypeEnum.Error)" src="..\..\assets\images\error_red.png" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.AdditionalColumn, ErrorTypeEnum.Error)}}" />
+                  <span *ngIf="hasCellError(dataItem.errors, SalaryGridColumnEnum.AdditionalColumn, ErrorTypeEnum.Warning)" class="k-icon k-i-notification" [ngStyle]="{'color' : getCellErrorColor(dataItem.errors, SalaryGridColumnEnum.AdditionalColumn, ErrorTypeEnum.Warning)}" title="{{getCellError(dataItem.errors, SalaryGridColumnEnum.AdditionalColumn, ErrorTypeEnum.Warning)}}"></span>
+                </ng-template>
+              </kendo-grid-column>
+              <ng-template kendoGridNoRecordsTemplate>
+                {{ 'QUESTIONARY-SALARY-GRID.NO-RECORDS-AVAILABLE' | translate }}
+              </ng-template>
+            </kendo-grid>
+          </div>
+        </div>
+      </ng-container>
+    </kendo-splitter-pane>
+  </kendo-splitter>
+</div>
+<kendo-dialog *ngIf="opened" (close)="close('cancel')" [minWidth]="500" [width]="500">
+  <kendo-dialog-titlebar>
+    <span style="font-size: 18px; font-family:Arial; font-weight: 700;">Загрузка анкеты</span>
+  </kendo-dialog-titlebar>
+
+  <span style="font-size: 13px; font-family:Arial; font-weight: 700; width: 235px; display:inline-block; padding-left: 25px">Анкета</span>
+  <span style="font-size: 13px; font-family:Arial; font-weight: 700; display:inline-block;">Компания</span>
+  <div style="max-height: 600px; overflow-y: auto">
+    <app-upload (success)="close('success')"></app-upload>
+  </div>
+  <div style="text-align: right">
+    <button kendoButton primary="true" style="text-transform: capitalize; width: 100px; color: #333333; margin-top: 10px;" (click)="close('cancel')">ОК</button>
+  </div>
+</kendo-dialog>
+
+<div kendoDialogContainer></div>
+
+<kendo-dialog *ngIf="openedPwcCodeSelect" (close)="closePwcCodeSelect('cancel')" [width]="1225" [height]="790">
+  <kendo-dialog-titlebar>
+    <span style="font-size: 18px; font-family:Arial; font-weight: 700;">Каталог эталонных должностей PayWell</span>
+  </kendo-dialog-titlebar>
+
+  <kendo-autocomplete #txtFilter
+                        [data]="gridPositionsFilter"
+                        [filterable]="true"
+                        valueField="allPropertyValues"
+                        (filterChange)="onPwcCodeFilterChange($event, true)"
+                        (valueChange)="onPwcCodeChange($event)"
+                        placeholder="{{ 'QUESTIONARY-SALARY.SEARCHBYLIST' | translate }}"
+                        style="width: 1180px;">
+    </kendo-autocomplete><br><br>
+
+  <kendo-grid #gridPositions
+              id="gridPositions"
+              [height]="640"
+              [data]="gridPositionView"
+              [pageSize]="statePosition.take"
+              [skip]="statePosition.skip"
+              [resizable]="true"
+              [selectable]="true"
+              [kendoGridSelectBy]="'id'"
+              [selectedKeys]="pwcPositionSelection"
+              filterable="menu"
+              [filter]="statePosition.filter"
+              (cellClick)="onPwcGridCellClickHandler($event)"
+              (dataStateChange)="dataStateChangePosition($event)">
+    <kendo-grid-column field="pwCPositionCode" title="{{ 'QUESTIONARY-SALARY.COLUMN-PWCCODE' | translate }}" width="130" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '25px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+    </kendo-grid-column>
+    <kendo-grid-column field="pwCStandardPositionName" title="{{ 'QUESTIONARY-SALARY.COLUMN-PWCPOSITION' | translate }}" width="280" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '25px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+    </kendo-grid-column>
+    <kendo-grid-column field="payWellLevelName" title="{{ 'QUESTIONARY-SALARY.COLUMN-PWCLEVEL' | translate }}" width="170" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '25px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+    </kendo-grid-column>
+    <kendo-grid-column field="payWellFunctionName" title="{{ 'QUESTIONARY-SALARY.COLUMN-PWCFUNCTION' | translate }}" width="200" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '25px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+    </kendo-grid-column>
+    <kendo-grid-column field="payWellSubFunctionName" title="{{ 'QUESTIONARY-SALARY.COLUMN-PWCSUBFUNCTION' | translate }}" width="200" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '25px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+    </kendo-grid-column>
+    <kendo-grid-column field="payWellDepartmentName" title="{{ 'QUESTIONARY-SALARY.COLUMN-PWCDEPARTMENT' | translate }}" width="170" [headerStyle]="{'background-color': '#F2F2F2', 'color': '#333333', 'padding': '25px 5px', 'border': '1px solid #E4E4E4', 'font-size': '13px', 'font-weight': '400', 'line-height': 'normal'}" [style]="{'font-size': '13px', 'font-weight': '400', 'line-height': 'normal', 'padding': '0px 5px', 'border': '1px solid #E4E4E4'}">
+    </kendo-grid-column>
+    <ng-template kendoGridNoRecordsTemplate>
+      {{ 'QUESTIONARY-SALARY-GRID.NO-RECORDS-AVAILABLE' | translate }}
+    </ng-template>
+  </kendo-grid>
+</kendo-dialog>
+
+<kendo-dialog *ngIf="openedFilterRawDataUpload" (close)="closeFilterRawDataUpload('cancel')" [minWidth]="500" [width]="500">
+  <kendo-dialog-titlebar>
+    <span style="font-size: 18px; font-family:Arial; font-weight: 700;">Выгрузка отфильтрованных данных</span>
+  </kendo-dialog-titlebar>
+  <div class="row m-3">
+    <div class="col-md-2">
+      <br> {{ 'QUESTIONARY-SALARY.COLUMN-SECTOR' | translate }}:
+    </div>
+    <div class="col-md-10">
+      <kendo-multiselect [data]="payWellSectors"
+                         textField="payWellSectorName"
+                         valueField="id"
+                         (valueChange)="onPayWellSectorUploadChange($event)"
+                         [autoClose]="false"
+                         style="width: 350px"
+                         [disabled]="companies.length == 0"
+                         [(ngModel)]="payWellSectorUpload">
+      </kendo-multiselect>
+    </div>
+  </div>
+  <div class="row m-3">
+    <div class="col-md-2">
+      <br> {{ 'QUESTIONARY-SALARY.COLUMN-DISTRICT' | translate }}:
+    </div>
+    <div class="col-md-10">
+      <kendo-multiselect [data]="districts"
+                         textField="nameRu"
+                         valueField="id"
+                         (valueChange)="onDistrictUploadChange($event)"
+                         [autoClose]="false"
+                         style="width: 350px"
+                         [(ngModel)]="districtUpload">
+      </kendo-multiselect>
+    </div>
+  </div>
+  <div class="row m-3">
+    <div class="col-md-2">
+      <br> {{ 'QUESTIONARY-SALARY.COLUMN-REGION' | translate }}:
+    </div>
+    <div class="col-md-10">
+      <kendo-multiselect [data]="regions"
+                         textField="nameRu"
+                         valueField="id"
+                         (valueChange)="onRegionUploadChange($event)"
+                         [autoClose]="false"
+                         style="width: 350px"
+                         [(ngModel)]="regionUpload">
+      </kendo-multiselect>
+    </div>
+  </div>
+  <div class="row m-3">
+    <div class="col-md-2">
+      <br> {{ 'QUESTIONARY-SALARY.COLUMN-CITY' | translate }}:
+    </div>
+    <div class="col-md-10">
+      <kendo-multiselect [data]="cities"
+                         textField="nameRu"
+                         valueField="id"
+                         (valueChange)="onCityUploadChange($event)"
+                         [autoClose]="false"
+                         style="width: 350px"
+                         [(ngModel)]="cityUpload">
+      </kendo-multiselect>
+    </div>
+  </div>
+
+  <div>
+    <button kendoButton primary="true" style="text-transform: capitalize; width: 100px; color: #333333; margin-top: 10px;" (click)="closeFilterRawDataUpload('success')">Выгрузить</button>
+  </div>
+</kendo-dialog>
+
