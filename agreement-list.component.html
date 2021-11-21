@@ -1,0 +1,355 @@
+<div class="d-flex flex-column flex-fill h-100">
+    <!-- Фильтры -->
+    <div class="agreement-list-filters-block d-flex flex-column flex-shrink-0">
+        <div style="max-width: 1280px">
+            <div class="agreement-list-filters d-flex flex-column">
+
+                 // *** УДАЛИЛ ПОХОЖИЙ КОД ***
+
+                <!-- Элемент с быстрыми фильтрами -->
+                <div class="collapse show multi-collapse" id="filtersShort">
+                    <div class="d-flex flex-row flex-wrap quik-filter">
+                        <button 
+                            kendoButton 
+                            *ngIf="!isFilterExpanded && quickFilters.length > 0" 
+                            type="button" 
+                            (click)="clearFilter()"
+                            icon="filter-clear" 
+                            class="quick-filter-item clear-all-button-filter" 
+                            [title]="'AgreementList.ClearAllFilters'| translate ">
+                        </button>
+                        <app-quick-filter-item 
+                            *ngFor="let item of quickFilters" 
+                            [name]="item.name" 
+                            [type]="item.type"
+                            [value]="item.value"
+                            [tagColor]="item.tagColor"
+                            (removed)="onRemoveQuikFilterItem($event)" 
+                            class="quick-filter-item">
+                        </app-quick-filter-item>
+                    </div>
+                </div>
+
+                <!-- Скрываемый элемент с фильтрами -->
+                <div class="collapse multi-collapse" id="filters">
+                    <!-- Основные фильтры -->
+                    <div class="agreement-list-filters-main d-flex flex-row flex-fill">
+                        <!-- 1 столбец -->
+                        <div class="d-flex flex-column flex-fill agreement-list-filter-column w-100">
+                            <!-- Статус договора -->
+                            <div class="d-flex agreement-list-filter-group">
+                                <label>{{'Agreement.Status' | translate}}</label>
+
+                                <kendo-multiselect 
+                                    kendoMultiSelectSummaryTag 
+                                    [data]="agreementStatus.sourceItems"
+                                    [(ngModel)]="filters.idsAgreementStatus" 
+                                    textField="name" 
+                                    valueField="id"
+                                    [valuePrimitive]="true" 
+                                    (valueChange)="filterChanged()" 
+                                    [class]="'agreement-list-filter-control multiselect-with-tag'"
+                                    [popupSettings]="{ width: 300 }"
+                                >
+                                    <ng-template kendoMultiSelectGroupTagTemplate let-dataItems>
+                                        <div class="select-group-tag ">
+                                            <span class="k-icon k-i-arrow-s"></span>
+                                            {{ dataItems.length === 1 ? dataItems[0].name : (dataItems.length) + ' выбрано' }}
+                                        </div>
+                                    </ng-template>
+                                    <ng-template kendoMultiSelectNoDataTemplate>
+                                    </ng-template>
+                                </kendo-multiselect>
+                            </div>
+
+                            <!-- Тэги -->
+                            <div class="d-flex agreement-list-filter-group">
+                                <label>{{'AgreementList.Tags' | translate}}</label>
+                            
+                                <kendo-multiselect 
+                                   kendoMultiSelectSummaryTag
+                                   [data]="dicts.tags.filteredItems"
+                                   [(ngModel)]="filters.tags"
+                                   textField="name"
+                                   valueField="rowNumber"
+                                   [valuePrimitive]="false"
+                                   (valueChange)="filterChanged()"
+                                   [class]="'agreement-list-filter-control multiselect-with-tag'"
+                                   [popupSettings]="{ width: 300 }"
+                                >
+                                    <ng-template kendoMultiSelectGroupTagTemplate let-dataItems >
+                                        <div class="select-group-tag ">
+                                            <span class="k-icon k-i-arrow-s"></span>
+                                            {{ dataItems.length === 1 ? dataItems[0].name : (dataItems.length) + ' выбрано' }}
+                                        </div>
+                                    </ng-template>
+                                    <ng-template kendoMultiSelectNoDataTemplate>
+                                    </ng-template>
+                                </kendo-multiselect>
+                            </div>
+                        </div>
+
+                        <!-- 2-й столбец фильтра -->
+                        <div class="d-flex flex-column flex-fill agreement-list-filter-column w-100">
+                            <div class="d-flex agreement-list-filter-group">
+                                <input type="checkbox"
+                                    id="isHolding" 
+                                    class="k-checkbox"
+                                    disabled=true
+                                    [(ngModel)]="filters.isHolding" 
+                                    [ngModelOptions]="{standalone: true}" 
+                                    (change)="filterChanged()">
+                                <label class="k-checkbox-label cc-checkbox" for="isHolding">{{'AgreementList.IsHolding' | translate}}</label>
+                            </div>
+
+							// *** УДАЛИЛ ПОХОЖИЙ КОД ***
+                        </div>
+
+                        <!-- 3 столбец -->
+                        <div class="d-flex flex-column flex-fill w-100">
+                        </div>
+                    </div>
+
+                    <!-- Разделитель -->
+                    <div class="agreement-list-filters-splitter d-flex flex-row flex-fill">
+                    </div>
+
+                    <!-- Фильтры по параметрам договора -->
+                    <div class="agreement-list-filters-common d-flex flex-row flex-fill">
+                        <!-- 1-й столбец фильтра -->
+                        <div class="d-flex flex-column flex-fill agreement-list-filter-column w-100">
+                            <!-- Контрагент -->
+                            <div class="d-flex agreement-list-filter-group">
+                                <label>{{'Agreement.Contractor' | translate}}</label>
+
+                                <input 
+                                    kendoTextBox 
+                                    id="contractorName"  
+                                    name="contractorName"
+                                    type="text"
+                                    [debounce]="200" 
+                                    (onDebounce)="filterChanged()"
+                                    [(ngModel)]="filters.contractorName"
+                                    class="agreement-list-filter-control"
+                                />
+                            </div>
+
+                            // *** УДАЛИЛ ПОХОЖИЙ КОД ***
+                        </div>
+
+                        <!-- 2-й столбец фильтра -->
+                        <div class="d-flex flex-column flex-fill agreement-list-filter-column w-100">
+                             <!-- ЦФО  -->
+                             <div class="d-flex agreement-list-filter-group">
+                                <label for="cfoMultiselect">{{'Agreement.Cfo' | translate}}</label>
+        
+                                <div class="d-flex flex-row agreement-list-filter-control">
+                                    <kendo-multiselect 
+                                        id="cfoMultiselect" 
+                                        name="cfoMultiselect"
+                                        kendoMultiSelectSummaryTag
+                                        [data]="cfosMultiselect"
+                                        [valueField]="'id'"
+                                        [textField]="'name'"
+                                        [valuePrimitive]="true"
+                                        [filterable]="true"
+                                        (valueChange)="filterChanged()"
+                                        [(ngModel)]="filters.idsCfo"
+                                        [popupSettings]="{ width: 300 }"
+                                        [class]="'multiselect-with-tag'">
+                                        <ng-template kendoMultiSelectItemTemplate let-dataItem>
+                                            <span>{{ dataItem.name + ' (' + dataItem.code + ')' }}</span>
+                                        </ng-template>
+                                        <ng-template kendoMultiSelectGroupTagTemplate let-dataItems>
+                                            <div class="select-group-tag-complex">
+                                                <span class="k-icon k-i-arrow-s"></span>
+                                                {{ dataItems.length === 1 ? dataItems[0].name + ' (' + dataItems[0].code + ')' : (dataItems.length) + ' выбрано' }}
+                                            </div>
+                                        </ng-template>
+                                        <ng-template kendoMultiSelectNoDataTemplate>
+                                        </ng-template>
+                                    </kendo-multiselect>
+                                
+                                    <button type="button"
+                                            kendoButton
+                                            (click)="onSelectCfoButtonClick()"
+                                            [icon]="'folder-more'"
+                                            alt="Выбрать"
+                                            class="agreement-list-filter-control-button">
+                                    </button>
+                                </div>
+                            </div>
+
+                            // *** УДАЛИЛ ПОХОЖИЙ КОД ***
+                        </div>
+
+                        <!-- 3-й столбец фильтра -->
+                        <div class="d-flex flex-column flex-fill w-100">
+                            // *** УДАЛИЛ ПОХОЖИЙ КОД ***
+
+                            <!-- Сумма от -->
+                            <div class="d-flex agreement-list-filter-group">
+                                <label>{{'Agreement.Amount from' | translate}}</label>
+                            
+                                <div class="agreement-list-filter-control">
+                                    <kendo-numerictextbox
+                                        id="amountFrom"
+                                        name="amountFrom"
+                                        style="width: 130px"
+                                        [format]="'n2'"
+                                        [step]="0"
+                                        [spinners]="false"
+                                        [debounce]="200" 
+                                        (onDebounce)="filterChanged()"
+                                        [(ngModel)]="filters.amountFrom"
+                                        >
+                                    </kendo-numerictextbox>         
+
+                                    <kendo-dropdownlist 
+                                        id="idCurrency" 
+                                        name="Agreement.Currency of payment"
+                                        class="pl-2"
+                                        style="width: 70px"
+                                        [data]="dicts.currencies.sourceItems" 
+                                        [valueField]="'id'" 
+                                        [textField]="'isoCode'"
+                                        [valuePrimitive]="true"
+                                        [debounce]="200" 
+                                        (onDebounce)="filterChanged()"
+                                        [(ngModel)]="filters.idCurrency"
+                                        >
+                                        <ng-template kendoDropDownListItemTemplate let-dataItem>
+                                            <span class="paymentRequestDropDownItem">{{ dataItem.isoCode }}</span> 
+                                        </ng-template>
+                                    </kendo-dropdownlist>
+                                </div>
+                            </div>
+                            // *** УДАЛИЛ ПОХОЖИЙ КОД ***
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Элемент для сворачивания/разворачивания фильтра -->
+        <div class="d-flex flex-row agreement-list-filters-collapse">
+                <button type="button"
+                        kendoButton
+                        data-toggle="collapse"
+                        data-target=".multi-collapse"
+                        aria-expanded="false"
+                        aria-controls="filters filtersShort"
+                        class="ml-auto mr-auto"
+                        (click)="expandFilter()"
+                        [title]="(isFilterExpanded ? 'AgreementList.CollapsAllFilters' : 'AgreementList.ExpandAllFilters')| translate "
+                        style="height: 14px;width: 50px;padding: 0;">
+                        <img [src]="'assets/images/icons/'+ (isFilterExpanded ? 'arrow-up.png' : 'arrow-down.png') ">
+                </button>
+        </div>
+    </div>
+
+    <!-- Грид -->
+    <div kendoTooltip
+         showOn="none"
+         [tooltipTemplate]="tooltipTemplate"
+         filter="td"
+         class="agreement-list-grid d-flex flex-fill-custom h-100"
+         (mouseover)="showTooltip($event)">
+        <kendo-grid #grid
+                    class="w-100 h-100 register-grid"
+                    [data]="gridView" 
+                    [pageSize]="pageSize"
+                    [skip]="skip"
+                    [pageable]="pageableSettings"
+                    (pageChange)="pageChange($event)"
+                    [selectable]="selectableSettings"
+                    (selectionChange)="onGridSelectionChange($event)"
+                    (dblclick)="onGridDoubleClick($event)"
+                    [resizable]="true"
+                    [reorderable]="true"
+                    [sortable]="sortSettings"
+                    [sort]="gridSort"
+                    (sortChange)="onGridSortChange($event)"
+                    [loading]="isDataLoading"
+                    [groupable]="true"
+                    [group]="gridGroups">
+            <ng-template kendoGridToolbarTemplate>
+                <button type="button" kendoButton (click)="refreshData()" icon="refresh" [title]="'App.Update' | translate"></button>
+                <button type="button" kendoButton (click)="exportToExcel()" icon="file-excel">{{'App.Export to Excel' | translate}}</button>
+                <button type="button" kendoButton (click)="onAutofitColumnsWidth()"  icon="cells-merge-vertically">{{'AgreementList.Auto size columns' | translate}}</button>
+                <kendo-grid-column-chooser style="float:right;"></kendo-grid-column-chooser>
+                <button type="button" kendoButton (click)="onResetColumnsSettings()"  icon="reset" style="float:right;">{{'AgreementList.ResetColumnsSettings' | translate}}</button>
+                <button type="button" kendoButton (click)="onSaveColumnsSettings(grid)"  icon="save" style="float:right;">{{'AgreementList.SaveColumnsSettings' | translate}}</button>
+            </ng-template>
+
+            <kendo-grid-column 
+                *ngFor="let column of columns"
+                [field]="column.fieldName" 
+                [title]="column.translationName | translate" 
+                [width]="column.width" 
+                [minResizableWidth]="column.minResizableWidth" 
+                [headerClass]="column.headerClass || 'grid-header'" 
+                [class]="column.cellClass || 'grid-cell'"
+                [format]="column.columnFormat"
+                [groupable]="false"
+                [hidden]="!column.visible"
+                [sortable]="column.sortable"
+            >
+                <ng-template *ngIf="column.fieldName === 'idAgreementMain'" kendoGridGroupHeaderTemplate let-dataItem>
+                    <a 
+                        class="agreement-link-header"
+                        target="_blank" 
+                        href="https://doc.global.bcs/Lists/AgreementList/EditForm.aspx?ID={{ dataItem.items[0].idExternalAgreement }}"
+                    >
+                        <!-- На бэке каждый договор имеет информацию об основном договоре, поэтому берём первый попавшийся -->
+                        {{ dataItem.items[0].mainAgreementName }} - {{ dataItem.items[0].side2AgreementNumber }}
+                        <div class="k-icon k-i-hyperlink-globe ml-1"></div>
+                    </a>
+                </ng-template>
+
+                <!-- Цветные тэги -->
+                <ng-template *ngIf="column.fieldName === 'tag'" kendoGridCellTemplate let-dataItem>
+                    <app-agreement-tag-cell-item *ngFor="let item of getCellTagValue(dataItem)"
+                        [name]="item.name"
+                        [tagColor]="item.color"
+                    > 
+                    </app-agreement-tag-cell-item>
+                </ng-template>
+
+                <!-- Форматирование полей с типом "Date" -->
+                <ng-template *ngIf="column.columnKind === 'Date'" kendoGridCellTemplate let-dataItem>
+                    {{ dataItem[column.fieldName] | date:'dd.MM.yyyy' }}
+                </ng-template>
+                
+                <!-- Форматирование полей с типом "Date" -->
+                <ng-template *ngIf="column.columnKind === 'Date - MM.yyyy'" kendoGridCellTemplate let-dataItem>
+                    {{ dataItem[column.fieldName] | date:'MM.yyyy' }}
+                </ng-template>
+
+                <!-- Ссылки -->
+                <ng-template *ngIf="column.columnKind === 'Link'" kendoGridCellTemplate let-dataItem>
+                    <a class="agreement-link" target="_blank" [href]="getUrl(dataItem, column.fieldName) | urlSafe">{{ getUrlName(dataItem, column.fieldName) }}</a>
+                </ng-template>
+            </kendo-grid-column>
+
+            <ng-template kendoGridNoRecordsTemplate>
+            </ng-template>
+
+            <kendo-grid-messages [pagerOf]="'Grid.PagerOf' | translate" 
+                                 [pagerItems]="'Grid.PagerItems' | translate" 
+                                 [pagerItemsPerPage]="'Grid.PagerItemsPerPage' | translate"
+                                 [columns]="'Grid.Columns' | translate"
+                                 [columnsApply]="'Grid.ColumnsApply' | translate"
+                                 [columnsReset]="'Grid.ColumnsReset' | translate">
+            </kendo-grid-messages>
+     
+        </kendo-grid>
+    </div>
+</div>
+
+<ng-container #dialogContainer></ng-container>
+
+<ng-template #tooltipTemplate let-anchor>
+        <span>{{ anchor.nativeElement.innerText }}</span>
+</ng-template>

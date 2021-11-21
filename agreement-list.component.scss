@@ -1,0 +1,35 @@
+@import 'src/sass/abstracts/variables';
+
+$control-width: 200px; 
+$extended-control-width: 200px; 
+
+:host {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    align-self: center;
+    height: 100%;
+}
+
+.agreement-list-filters {
+  padding: 30px 30px 20px 30px;
+}
+
+.agreement-list-filters-block {
+    border: 1px solid $color-border-base;
+    background-color: $color-base;
+    margin: 10px 10px 0 10px;
+}
+
+.agreement-list-filters-header {
+    font-size: $font-size-header-3;
+    font-weight: bold;
+    margin-left: 15px;
+}
+
+.agreement-list-filters-main {
+    margin: 10px 15px 25px 15px;
+}
+
+// *** УДАЛИЛ ПОХОЖИЙ КОД ***
